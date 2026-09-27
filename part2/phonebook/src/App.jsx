@@ -1,8 +1,10 @@
-import axios from "axios";
 import { useEffect, useState } from "react";
+
 import SearchName from "./components/SearchName";
 import AddForm from "./components/AddForm";
 import ContactList from "./components/ContactList";
+
+import phonebookServices from "./services/phonebook";
 
 function App() {
   const [persons, setPersons] = useState([]);
@@ -11,10 +13,30 @@ function App() {
   const [searchName, setSearchName] = useState("");
 
   useEffect(function () {
-    axios.get("http://localhost:3001/persons").then((res) => {
-      setPersons(res.data);
+    phonebookServices.getAll().then((data) => {
+      setPersons(data);
     });
   }, []);
+
+  function handleUpdateNumber(id, updatedContact) {
+    const replaceNumberPermission = confirm(
+      `${newName} already exists in the phonebook, want to replace the number?`,
+    );
+
+    if (!replaceNumberPermission) {
+      setNewName("");
+      setNewPhoneNum("");
+      return;
+    }
+
+    phonebookServices.updateContact(id, updatedContact).then((data) => {
+      setPersons((persons) =>
+        persons.map((person) => (person.id === id ? data : person)),
+      );
+      setNewName("");
+      setNewPhoneNum("");
+    });
+  }
 
   function handleAddNumber(e) {
     e.preventDefault();
@@ -23,20 +45,36 @@ function App() {
       return;
     }
 
-    const doesExist = !!persons.find((person) => person.name === newName);
+    const newObject = {
+      name: newName,
+      number: newPhoneNum,
+    };
 
-    if (!doesExist) {
-      const newObject = {
-        name: newName,
-        number: newPhoneNum,
-      };
-      setPersons(persons.concat(newObject));
-    } else {
-      alert(`${newName} is already added to phonebook`);
+    const doesExist = persons.find((person) => person.name === newName);
+
+    if (doesExist) {
+      handleUpdateNumber(doesExist.id, newObject);
+      return;
     }
+
+    phonebookServices
+      .createNewContact(newObject)
+      .then((data) => setPersons(persons.concat(data)));
 
     setNewName("");
     setNewPhoneNum("");
+  }
+
+  function handleDeleteNumber(id) {
+    const personName = persons.find((person) => person.id === id).name;
+
+    const deletePermission = confirm(`Delete ${personName}`);
+
+    if (deletePermission) {
+      phonebookServices.deleteContact(id).then(() => {
+        setPersons((persons) => persons.filter((person) => person.id !== id));
+      });
+    }
   }
 
   const dataToShow = searchName
@@ -59,7 +97,10 @@ function App() {
         onAddNumber={handleAddNumber}
       />
 
-      <ContactList dataToShow={dataToShow} />
+      <ContactList
+        dataToShow={dataToShow}
+        onDeleteNumber={handleDeleteNumber}
+      />
     </div>
   );
 }
