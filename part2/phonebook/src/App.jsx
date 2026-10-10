@@ -58,7 +58,7 @@ function App() {
         setIsSuccess(false);
         setTimeout(() => {
           setNotification(null);
-          setIsSuccess(true);
+          setIsSuccess(null);
         }, 5000);
 
         setPersons((persons) => persons.filter((person) => person.id !== id));
