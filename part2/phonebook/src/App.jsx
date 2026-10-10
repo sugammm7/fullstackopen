@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import SearchName from "./components/SearchName";
 import AddForm from "./components/AddForm";
 import ContactList from "./components/ContactList";
+import Notification from "./components/Notification";
 
 import phonebookServices from "./services/phonebook";
 
@@ -11,6 +12,8 @@ function App() {
   const [newName, setNewName] = useState("");
   const [newPhoneNum, setNewPhoneNum] = useState("");
   const [searchName, setSearchName] = useState("");
+  const [notification, setNotification] = useState(null);
+  const [isSuccess, setIsSuccess] = useState(null);
 
   useEffect(function () {
     phonebookServices.getAll().then((data) => {
@@ -29,13 +32,40 @@ function App() {
       return;
     }
 
-    phonebookServices.updateContact(id, updatedContact).then((data) => {
-      setPersons((persons) =>
-        persons.map((person) => (person.id === id ? data : person)),
-      );
-      setNewName("");
-      setNewPhoneNum("");
-    });
+    phonebookServices
+      .updateContact(id, updatedContact)
+      .then((data) => {
+        setPersons((persons) =>
+          persons.map((person) => (person.id === id ? data : person)),
+        );
+
+        setNotification(
+          `Changed ${data.name} contact number as ${data.number}`,
+        );
+        setIsSuccess(true);
+        setTimeout(() => {
+          setNotification(null);
+          setIsSuccess(null);
+        }, 5000);
+
+        setNewName("");
+        setNewPhoneNum("");
+      })
+      .catch(() => {
+        setNotification(
+          `Information of ${updatedContact.name} has been already removed from server`,
+        );
+        setIsSuccess(false);
+        setTimeout(() => {
+          setNotification(null);
+          setIsSuccess(true);
+        }, 5000);
+
+        setPersons((persons) => persons.filter((person) => person.id !== id));
+
+        setNewName("");
+        setNewPhoneNum("");
+      });
   }
 
   function handleAddNumber(e) {
@@ -60,6 +90,13 @@ function App() {
     phonebookServices
       .createNewContact(newObject)
       .then((data) => setPersons(persons.concat(data)));
+
+    setNotification(`Added ${newName}`);
+    setIsSuccess(true);
+    setTimeout(() => {
+      setNotification(null);
+      setIsSuccess(null);
+    }, 5000);
 
     setNewName("");
     setNewPhoneNum("");
@@ -86,6 +123,8 @@ function App() {
   return (
     <div>
       <h2>Phonebook</h2>
+
+      <Notification message={notification} isSuccess={isSuccess} />
 
       <SearchName searchName={searchName} onChangeSearchName={setSearchName} />
 
