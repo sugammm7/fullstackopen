@@ -1,2 +1,2 @@
 # fullstackopen
-The repository contains solutions of the exercises from each part of fullstackopen.
+A collection of my Full Stack Open exercise solutions and projects as I learn, practice, and grow as a full-stack developer.
