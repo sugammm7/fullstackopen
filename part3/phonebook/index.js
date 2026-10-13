@@ -13,6 +13,8 @@ app.use(
   ),
 );
 
+app.use(express.static("dist"));
+
 let persons = [
   {
     id: "1",
@@ -89,7 +91,7 @@ app.post("/api/persons", (req, res) => {
 
   persons = persons.concat(person);
 
-  res.json(person);
+  res.status(201).json(person);
 });
 
 app.delete("/api/persons/:id", (req, res) => {
@@ -99,7 +101,7 @@ app.delete("/api/persons/:id", (req, res) => {
   res.status(204).end();
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`The server is listening on port ${PORT}`);
 });
