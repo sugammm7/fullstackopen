@@ -21,7 +21,7 @@ function App() {
     });
   }, []);
 
-  function handleUpdateNumber(id, updatedContact) {
+  function handleUpdateNumber(updatedContact) {
     const replaceNumberPermission = confirm(
       `${newName} already exists in the phonebook, want to replace the number?`,
     );
@@ -31,6 +31,8 @@ function App() {
       setNewPhoneNum("");
       return;
     }
+
+    const id = updatedContact.id;
 
     phonebookServices
       .updateContact(id, updatedContact)
@@ -51,17 +53,20 @@ function App() {
         setNewName("");
         setNewPhoneNum("");
       })
-      .catch(() => {
-        setNotification(
-          `Information of ${updatedContact.name} has been already removed from server`,
-        );
+      .catch((err) => {
+        if (err.response.status === 404) {
+          setNotification(
+            `The contact ${updatedContact.name} is already removed from server`,
+          );
+          setPersons((persons) => persons.filter((person) => person.id !== id));
+        } else {
+          setNotification(err.response.data.error);
+        }
         setIsSuccess(false);
         setTimeout(() => {
           setNotification(null);
           setIsSuccess(null);
         }, 5000);
-
-        setPersons((persons) => persons.filter((person) => person.id !== id));
 
         setNewName("");
         setNewPhoneNum("");
@@ -75,28 +80,39 @@ function App() {
       return;
     }
 
+    const doesExist = persons.find((person) => person.name === newName);
+
+    if (doesExist) {
+      const updatedObj = { ...doesExist, number: newPhoneNum };
+
+      handleUpdateNumber(updatedObj);
+      return;
+    }
+
     const newObject = {
       name: newName,
       number: newPhoneNum,
     };
 
-    const doesExist = persons.find((person) => person.name === newName);
-
-    if (doesExist) {
-      handleUpdateNumber(doesExist.id, newObject);
-      return;
-    }
-
     phonebookServices
       .createNewContact(newObject)
-      .then((data) => setPersons(persons.concat(data)));
-
-    setNotification(`Added ${newName}`);
-    setIsSuccess(true);
-    setTimeout(() => {
-      setNotification(null);
-      setIsSuccess(null);
-    }, 5000);
+      .then((data) => {
+        setPersons(persons.concat(data));
+        setNotification(`Added ${newName}`);
+        setIsSuccess(true);
+        setTimeout(() => {
+          setNotification(null);
+          setIsSuccess(null);
+        }, 5000);
+      })
+      .catch((err) => {
+        setNotification(err.response.data.error);
+        setIsSuccess(false);
+        setTimeout(() => {
+          setNotification(null);
+          setIsSuccess(null);
+        }, 5000);
+      });
 
     setNewName("");
     setNewPhoneNum("");
