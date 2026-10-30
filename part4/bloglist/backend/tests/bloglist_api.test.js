@@ -2,9 +2,11 @@ const assert = require('node:assert');
 const { test, after, beforeEach, describe } = require('node:test');
 const supertest = require('supertest');
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const app = require('../app');
 const Blog = require('../models/blog');
+const User = require('../models/user');
 const helper = require('./helper');
 
 const api = supertest(app);
@@ -182,6 +184,157 @@ describe('when there are blogs in db', () => {
       assert.notDeepStrictEqual(notChangedBlog, {
         blogToUpdate,
       });
+    });
+  });
+});
+
+describe('when there are users in db', () => {
+  beforeEach(async () => {
+    await User.deleteMany({});
+
+    const newUser = {
+      username: 'root',
+      password: 'iamroot',
+    };
+
+    const user = new User(newUser);
+
+    await user.save();
+  });
+
+  test('success creating user with valid data', async () => {
+    const usersAtStart = await helper.usersInDb();
+
+    const newUser = {
+      username: 'joshua',
+      name: 'Joshua Brown',
+      password: 'iamjoshua',
+    };
+
+    await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(201)
+      .expect('Content-type', /application\/json/);
+
+    const usersAtEnd = await helper.usersInDb();
+
+    assert.strictEqual(usersAtStart.length + 1, usersAtEnd.length);
+  });
+
+  describe('error with proper status code and message with missing required fields and invalid data', () => {
+    test('with missing username', async () => {
+      const usersAtStart = await helper.usersInDb();
+
+      const newUser = {
+        name: 'Joshua Brown',
+        password: 'iamjoshua',
+      };
+
+      const res = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-type', /application\/json/);
+
+      const usersAtEnd = await helper.usersInDb();
+
+      assert(res.body.error.includes('User validation failed'));
+
+      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+    });
+
+    test('with missing password', async () => {
+      const usersAtStart = await helper.usersInDb();
+
+      const newUser = {
+        username: 'Joshua',
+        name: 'Joshua Brown',
+      };
+
+      const res = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-type', /application\/json/);
+
+      const usersAtEnd = await helper.usersInDb();
+
+      assert(res.body.error.includes('password field is required'));
+
+      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+    });
+
+    test('with password having less than 3 characters', async () => {
+      const usersAtStart = await helper.usersInDb();
+
+      const newUser = {
+        username: 'Joshua',
+        name: 'Joshua Brown',
+        password: 'we',
+      };
+
+      const res = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-type', /application\/json/);
+
+      const usersAtEnd = await helper.usersInDb();
+
+      assert(
+        res.body.error.includes('password must be atleast 3 characters long'),
+      );
+
+      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+    });
+
+    test('with username having less than 3 characters', async () => {
+      const usersAtStart = await helper.usersInDb();
+
+      const newUser = {
+        username: 'Jo',
+        name: 'Joshua Brown',
+        password: 'webros',
+      };
+
+      const res = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-type', /application\/json/);
+
+      const usersAtEnd = await helper.usersInDb();
+
+      assert(
+        res.body.error.includes('shorter than the minimum allowed length'),
+      );
+
+      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+    });
+
+    test('with username already existing in db', async () => {
+      const usersAtStart = await helper.usersInDb();
+
+      const newUser = {
+        username: 'root',
+        name: 'Joshua Brown',
+        password: 'webros',
+      };
+
+      const res = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-type', /application\/json/);
+
+      const usersAtEnd = await helper.usersInDb();
+
+      assert(
+        res.body.error.includes('user with provided username already exists'),
+      );
+
+      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
     });
   });
 });
