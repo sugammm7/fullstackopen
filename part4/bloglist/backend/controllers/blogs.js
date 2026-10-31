@@ -1,60 +1,49 @@
 const blogRouter = require('express').Router();
-const jwt = require('jsonwebtoken');
 
 const Blog = require('../models/blog');
-const User = require('../models/user');
-const config = require('../utils/config');
-
-const getTokenFrom = (req) => {
-  const auth = req.get('authorization');
-  if (auth && auth.startsWith('Bearer')) {
-    return auth.split(' ')[1];
-  }
-  return null;
-};
+const middleware = require('../utils/middleware');
 
 blogRouter.get('/', async (req, res) => {
   const blogs = await Blog.find({}).populate('user');
   res.json(blogs);
 });
 
-blogRouter.post('/', async (req, res) => {
-  const token = getTokenFrom(req);
-
-  if (!token) {
-    return res.status(401).json({ error: 'token is missing' });
-  }
-
-  const decoded = jwt.verify(token, config.JWT_SECRET);
-  if (!decoded.id) {
-    return res.status(401).json({ error: 'invalid token' });
-  }
-
-  const user = await User.findById(decoded.id);
-  if (!user) {
-    return res
-      .status(401)
-      .json({ error: 'user associated with token no longer exists' });
-  }
-
+blogRouter.post('/', middleware.userExtractor, async (req, res) => {
   const { title, author, url } = req.body;
 
   const blog = new Blog({
     title,
     author,
     url,
-    user: user._id,
+    user: req.user._id,
   });
 
   const savedBlog = await blog.save();
-  user.blogs = user.blogs.concat(savedBlog._id);
-  await user.save();
+  req.user.blogs = req.user.blogs.concat(savedBlog._id);
+  await req.user.save();
 
   res.status(201).json(savedBlog);
 });
 
-blogRouter.delete('/:id', async (req, res) => {
+blogRouter.delete('/:id', middleware.userExtractor, async (req, res) => {
+  const blog = await Blog.findById(req.params.id);
+
+  if (!blog) {
+    return res.status(404).end();
+  }
+
+  if (blog.user.toString() !== req.user._id.toString()) {
+    return res
+      .status(401)
+      .json({ error: 'You are only allowed to delete your own blog' });
+  }
+
   await Blog.findByIdAndDelete(req.params.id);
+
+  req.user.blogs = req.user.blogs.filter(
+    (blog) => blog.toString() !== req.params.id,
+  );
+  req.user.save();
 
   res.status(204).end();
 });

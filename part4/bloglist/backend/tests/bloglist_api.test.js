@@ -38,7 +38,19 @@ describe('when there are blogs in db', () => {
   });
 
   describe('addition of new blog', () => {
-    test('succeeds with valid data', async () => {
+    beforeEach(async () => {
+      await User.deleteMany({});
+
+      const passwordHash = await bcrypt.hash('iamroot', 10);
+      const user = new User({
+        username: 'root',
+        passwordHash,
+      });
+
+      await user.save();
+    });
+
+    test('unauthorized', async () => {
       const newBlog = {
         title: 'Turn Around...',
         author: 'DustyBun',
@@ -48,6 +60,35 @@ describe('when there are blogs in db', () => {
 
       await api
         .post('/api/blogs')
+        .send(newBlog)
+        .expect(401)
+        .expect('Content-type', /application\/json/);
+
+      const blogsAtEnd = await helper.blogsInDb();
+
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length);
+    });
+
+    test('succeeds with valid data', async () => {
+      const res = await api
+        .post('/api/login')
+        .send({
+          username: 'root',
+          password: 'iamroot',
+        })
+        .expect(200)
+        .expect('Content-type', /application\/json/);
+
+      const newBlog = {
+        title: 'Turn Around...',
+        author: 'DustyBun',
+        url: 'https://dustin.bloglist.com',
+        likes: 67,
+      };
+
+      await api
+        .post('/api/blogs')
+        .set('Authorization', `Bearer ${res.body.token}`)
         .send(newBlog)
         .expect(201)
         .expect('Content-type', /application\/json/);
@@ -62,6 +103,15 @@ describe('when there are blogs in db', () => {
     });
 
     test('with missing likes property default likes as 0', async () => {
+      const loginRes = await api
+        .post('/api/login')
+        .send({
+          username: 'root',
+          password: 'iamroot',
+        })
+        .expect(200)
+        .expect('Content-type', /application\/json/);
+
       const newBlog = {
         title: 'missing likes property',
         author: 'DustyBun',
@@ -70,6 +120,7 @@ describe('when there are blogs in db', () => {
 
       const response = await api
         .post('/api/blogs')
+        .set('Authorization', `Bearer ${loginRes.body.token}`)
         .send(newBlog)
         .expect(201)
         .expect('Content-type', /application\/json/);
@@ -81,12 +132,25 @@ describe('when there are blogs in db', () => {
     });
 
     test('with missing title or url field results 400 error', async () => {
+      const res = await api
+        .post('/api/login')
+        .send({
+          username: 'root',
+          password: 'iamroot',
+        })
+        .expect(200)
+        .expect('Content-type', /application\/json/);
+
       const newBlog = {
         author: 'DustyBun',
         url: 'https://dustin.bloglist.com',
       };
 
-      await api.post('/api/blogs').send(newBlog).expect(400);
+      await api
+        .post('/api/blogs')
+        .set('Authorization', `Bearer ${res.body.token}`)
+        .send(newBlog)
+        .expect(400);
 
       const blogsAtEnd = await helper.blogsInDb();
 
@@ -95,24 +159,69 @@ describe('when there are blogs in db', () => {
   });
 
   describe('deletion of blog', () => {
-    test('success with valid id', async () => {
-      const blogsAtStart = await helper.blogsInDb();
-      const blogToDelete = blogsAtStart[0];
+    let id;
+    beforeEach(async () => {
+      await User.deleteMany({});
 
-      await api.delete(`/api/blogs/${blogToDelete.id}`).expect(204);
+      const passwordHash = await bcrypt.hash('iamroot', 10);
+      const user = new User({
+        username: 'root',
+        passwordHash,
+      });
+      const savedUser = await user.save();
+
+      const newBlog = new Blog({
+        title: 'Turn Around...',
+        author: 'DustyBun',
+        user: savedUser._id,
+        url: 'https://dustin.bloglist.com',
+        likes: 67,
+      });
+      const res = await newBlog.save();
+      id = res._id;
+    });
+
+    test('success with valid id', async () => {
+      const res = await api
+        .post('/api/login')
+        .send({
+          username: 'root',
+          password: 'iamroot',
+        })
+        .expect(200)
+        .expect('Content-type', /application\/json/);
+
+      const blogsAtStart = await helper.blogsInDb();
+
+      await api
+        .delete(`/api/blogs/${id}`)
+        .set('Authorization', `Bearer ${res.body.token}`)
+        .expect(204);
 
       const blogsAtEnd = await helper.blogsInDb();
       const ids = blogsAtEnd.map((blog) => blog.id);
 
-      assert(!ids.includes(blogToDelete.id));
+      assert(!ids.includes(id));
 
-      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length - 1);
+      assert.strictEqual(blogsAtEnd.length, blogsAtStart.length - 1);
     });
 
     test('400 bad request with invalid id', async () => {
+      const res = await api
+        .post('/api/login')
+        .send({
+          username: 'root',
+          password: 'iamroot',
+        })
+        .expect(200)
+        .expect('Content-type', /application\/json/);
+
       const invalidId = '6adc3ca412f3d09d15d';
 
-      await api.delete(`/api/blogs/${invalidId}`).expect(400);
+      await api
+        .delete(`/api/blogs/${invalidId}`)
+        .set('Authorization', `Bearer ${res.body.token}`)
+        .expect(400);
     });
   });
 
@@ -192,12 +301,11 @@ describe('when there are users in db', () => {
   beforeEach(async () => {
     await User.deleteMany({});
 
-    const newUser = {
+    const passwordHash = await bcrypt.hash('iamroot', 10);
+    const user = new User({
       username: 'root',
-      password: 'iamroot',
-    };
-
-    const user = new User(newUser);
+      passwordHash,
+    });
 
     await user.save();
   });
@@ -219,7 +327,7 @@ describe('when there are users in db', () => {
 
     const usersAtEnd = await helper.usersInDb();
 
-    assert.strictEqual(usersAtStart.length + 1, usersAtEnd.length);
+    assert.strictEqual(usersAtEnd.length, usersAtStart.length + 1);
   });
 
   describe('error with proper status code and message with missing required fields and invalid data', () => {
@@ -241,7 +349,7 @@ describe('when there are users in db', () => {
 
       assert(res.body.error.includes('User validation failed'));
 
-      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+      assert.strictEqual(usersAtEnd.length, usersAtStart.length);
     });
 
     test('with missing password', async () => {
@@ -262,7 +370,7 @@ describe('when there are users in db', () => {
 
       assert(res.body.error.includes('password field is required'));
 
-      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+      assert.strictEqual(usersAtEnd.length, usersAtStart.length);
     });
 
     test('with password having less than 3 characters', async () => {
@@ -286,7 +394,7 @@ describe('when there are users in db', () => {
         res.body.error.includes('password must be atleast 3 characters long'),
       );
 
-      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+      assert.strictEqual(usersAtEnd.length, usersAtStart.length);
     });
 
     test('with username having less than 3 characters', async () => {
@@ -310,7 +418,7 @@ describe('when there are users in db', () => {
         res.body.error.includes('shorter than the minimum allowed length'),
       );
 
-      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+      assert.strictEqual(usersAtEnd.length, usersAtStart.length);
     });
 
     test('with username already existing in db', async () => {
@@ -334,7 +442,7 @@ describe('when there are users in db', () => {
         res.body.error.includes('user with provided username already exists'),
       );
 
-      assert.strictEqual(usersAtStart.length, usersAtEnd.length);
+      assert.strictEqual(usersAtEnd.length, usersAtStart.length);
     });
   });
 });
