@@ -43,7 +43,7 @@ blogRouter.delete('/:id', middleware.userExtractor, async (req, res) => {
   req.user.blogs = req.user.blogs.filter(
     (blog) => blog.toString() !== req.params.id,
   );
-  req.user.save();
+  await req.user.save();
 
   res.status(204).end();
 });
