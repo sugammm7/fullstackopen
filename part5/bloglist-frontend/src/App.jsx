@@ -14,7 +14,9 @@ function App() {
     const loggedInUser = window.localStorage.getItem('loggedInUser');
 
     if (loggedInUser) {
-      return JSON.parse(loggedInUser);
+      const parsedLoggedInUser = JSON.parse(loggedInUser);
+      blogService.setToken(parsedLoggedInUser.token);
+      return parsedLoggedInUser;
     }
     return null;
   });
