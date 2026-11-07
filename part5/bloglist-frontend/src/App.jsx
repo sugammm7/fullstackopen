@@ -18,7 +18,8 @@ function App() {
     }
     return null;
   });
-  const [errorMessage, setErrorMessage] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [isSuccess, setIsSuccess] = useState(null);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [url, setUrl] = useState('');
@@ -41,10 +42,12 @@ function App() {
       window.localStorage.setItem('loggedInUser', JSON.stringify(user));
       blogService.setToken(user.token);
     } catch (err) {
-      setErrorMessage(err.response.data.error);
+      setMessage(err.response.data.error);
+      setIsSuccess(false);
 
       setTimeout(() => {
-        setErrorMessage(null);
+        setMessage(null);
+        setIsSuccess(null);
       }, 5000);
     } finally {
       setUsername('');
@@ -64,10 +67,19 @@ function App() {
     try {
       const newBlog = await blogService.create({ title, author, url });
       setBlogs(blogs.concat(newBlog));
-    } catch (err) {
-      setErrorMessage(err.response.data.error);
+
+      setMessage(`a new blog ${title} by ${author} added`);
+      setIsSuccess(true);
       setTimeout(() => {
-        setErrorMessage(null);
+        setMessage(null);
+        setIsSuccess(null);
+      }, 5000);
+    } catch (err) {
+      setMessage(err.response.data.error);
+      setIsSuccess(false);
+      setTimeout(() => {
+        setMessage(null);
+        setIsSuccess(null);
       }, 5000);
     } finally {
       setAuthor('');
@@ -79,7 +91,7 @@ function App() {
   return (
     <div>
       <h2>blogs</h2>
-      {errorMessage && <Notification message={errorMessage} />}
+      {message && <Notification message={message} isSuccess={isSuccess} />}
 
       {user === null ? (
         <LoginForm
@@ -92,9 +104,10 @@ function App() {
       ) : (
         <>
           <p>
-            {user.username} logged in{' '}
-            <button onClick={handleLogout}>logout</button>
+            {user.name} logged in <button onClick={handleLogout}>logout</button>
           </p>
+
+          <h2>Create new</h2>
 
           <BlogForm
             title={title}
