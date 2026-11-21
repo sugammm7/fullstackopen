@@ -1,5 +1,3 @@
-import Button from './Button';
-
 function LoginForm({
   username,
   password,
@@ -29,7 +27,7 @@ function LoginForm({
           onChange={(e) => onChangePassword(e.target.value)}
         />
       </div>
-      <Button text="login" />
+      <button>login</button>
     </form>
   );
 }

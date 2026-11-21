@@ -1,16 +1,22 @@
-import Button from './Button';
+import { useState } from 'react';
 
-function BlogForm({
-  title,
-  onChangeTitle,
-  author,
-  onChangeAuthor,
-  url,
-  onChangeUrl,
-  onCreateBlog,
-}) {
+function BlogForm({ onCreateBlog }) {
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [url, setUrl] = useState('');
+
+  function handleCreateBlog(e) {
+    e.preventDefault();
+
+    onCreateBlog({ title, author, url });
+
+    setAuthor('');
+    setTitle('');
+    setUrl('');
+  }
+
   return (
-    <form onSubmit={onCreateBlog}>
+    <form onSubmit={(e) => handleCreateBlog(e)}>
       <div>
         <label htmlFor="title">title: </label>
         <input
@@ -18,9 +24,10 @@ function BlogForm({
           type="text"
           value={title}
           name="title"
-          onChange={(e) => onChangeTitle(e.target.value)}
+          onChange={(e) => setTitle(e.target.value)}
         />
       </div>
+
       <div>
         <label htmlFor="author">author: </label>
         <input
@@ -28,9 +35,10 @@ function BlogForm({
           type="text"
           value={author}
           name="author"
-          onChange={(e) => onChangeAuthor(e.target.value)}
+          onChange={(e) => setAuthor(e.target.value)}
         />
       </div>
+
       <div>
         <label htmlFor="url">url: </label>
         <input
@@ -38,10 +46,11 @@ function BlogForm({
           type="text"
           value={url}
           name="url"
-          onChange={(e) => onChangeUrl(e.target.value)}
+          onChange={(e) => setUrl(e.target.value)}
         />
       </div>
-      <Button text="create" />
+
+      <button>create</button>
     </form>
   );
 }
