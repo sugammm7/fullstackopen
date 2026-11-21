@@ -1,4 +1,5 @@
 const blogRouter = require('express').Router();
+const mongoose = require('mongoose');
 
 const Blog = require('../models/blog');
 const middleware = require('../utils/middleware');
@@ -48,8 +49,8 @@ blogRouter.delete('/:id', middleware.userExtractor, async (req, res) => {
   res.status(204).end();
 });
 
-blogRouter.put('/:id', async (req, res) => {
-  const { title, author, likes, url } = req.body;
+blogRouter.put('/:id', middleware.userExtractor, async (req, res) => {
+  const { title, author, likes, url, user } = req.body;
 
   const blog = await Blog.findById(req.params.id);
 
@@ -61,6 +62,7 @@ blogRouter.put('/:id', async (req, res) => {
   blog.author = author;
   blog.url = url;
   blog.likes = likes;
+  blog.user = new mongoose.Types.ObjectId(user);
 
   const updatedBlog = await blog.save();
 
